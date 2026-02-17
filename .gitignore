@@ -52,3 +52,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# JavaScript
+node_modules/
+wwwroot/node_modules/

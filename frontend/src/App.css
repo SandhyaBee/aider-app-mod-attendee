@@ -1,0 +1,127 @@
+:root {
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--card-bg);
+  padding-bottom: 20px;
+}
+
+.beta-tag {
+  background: #ef4444;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  vertical-align: super;
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+}
+
+/* Products */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.product-card {
+  background: var(--card-bg);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
+.product-image-placeholder {
+  height: 120px;
+  background: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--accent-hover);
+}
+
+/* Cart */
+.cart-container {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #334155;
+}
+
+.remove-btn {
+  background: transparent;
+  color: #ef4444;
+  margin-left: 10px;
+  font-weight: bold;
+}
+
+.remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.cart-total {
+  margin-top: 20px;
+  text-align: right;
+  border-top: 2px solid #334155;
+  padding-top: 10px;
+}
+
+.checkout-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  background: #10b981;
+}
