@@ -1,6 +1,6 @@
 -- 1. SETUP STRUCTURE
 DROP TABLE IF EXISTS OrderItems; DROP TABLE IF EXISTS Orders;
-DROP TABLE IF EXISTS ShoppingCartItems; DROP TABLE IF EXISTS ProductTags;
+DROP TABLE IF EXISTS CartItems; DROP TABLE IF EXISTS ProductTags;
 DROP TABLE IF EXISTS Tags; DROP TABLE IF EXISTS Products; DROP TABLE IF EXISTS Categories;
 
 CREATE TABLE Categories (Id INT PRIMARY KEY IDENTITY(1,1), Name NVARCHAR(100) NOT NULL);
@@ -22,7 +22,7 @@ CREATE TABLE ProductTags (
     PRIMARY KEY (ProductId, TagId)
 );
 
-CREATE TABLE ShoppingCartItems (
+CREATE TABLE CartItems (
     Id INT PRIMARY KEY IDENTITY(1,1),
     SessionId NVARCHAR(100) NOT NULL, 
     ProductId INT FOREIGN KEY REFERENCES Products(Id),
@@ -40,8 +40,6 @@ CREATE TABLE Orders (
     Status NVARCHAR(20) DEFAULT 'Pending'
 );
 
--- 2. ORDER ITEMS TABLE (Many-to-Many Join)
--- Connects Orders to Products with snapshot pricing
 CREATE TABLE OrderItems (
     OrderId INT NOT NULL,
     ProductId INT NOT NULL,
@@ -136,6 +134,6 @@ INSERT INTO ProductTags (ProductId, TagId) VALUES
 -- (Add more mappings as needed for the frontend filters)
 
 -- 6. STARTING CARTS
-INSERT INTO ShoppingCartItems (SessionId, ProductId, Quantity) VALUES 
+INSERT INTO CartItems (SessionId, ProductId, Quantity) VALUES 
 ('session-101', 1, 1), ('session-101', 37, 1), 
 ('session-102', 28, 1);
