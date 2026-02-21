@@ -24,26 +24,27 @@ function ProductList({ sessionId }) {
                 quantity: 1
             })
         })
-        .then(res => {
-            if(res.ok) {
-                // Trigger a custom event to notify the Cart component to refresh
-                window.dispatchEvent(new Event('cartUpdated'));
-                alert(`Added ${product.name} to cart!`);
-            }
+        .then(() => {
+            window.dispatchEvent(new Event('cartUpdated'));
         });
     };
 
-    if (loading) return <div>Loading Catalog...</div>;
+    if (loading) return <div className="loader">Accessing Central Archive...</div>;
 
     return (
         <div className="product-grid">
             {products.map(p => (
                 <div key={p.id} className="product-card">
-                    <div className="product-image-placeholder">{p.category}</div>
+                    <div className="category-badge">{p.category}</div>
                     <h3>{p.name}</h3>
-                    <p>{p.description}</p>
+                    <p className="description">{p.description}</p>
+                    <div className="tags-container">
+                        {p.tags.map(tag => (
+                            <span key={tag} className="tag">#{tag}</span>
+                        ))}
+                    </div>
                     <div className="price-row">
-                        <span className="price">${p.price}</span>
+                        <span className="price">${p.price.toFixed(2)}</span>
                         <button onClick={() => addToCart(p)}>Add to Cart</button>
                     </div>
                 </div>

@@ -125,3 +125,43 @@ button:hover {
   margin-top: 10px;
   background: #10b981;
 }
+
+/* New styles for the complex schema */
+.category-badge {
+    background: #334155;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-block;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 10px 0;
+}
+
+.tag {
+    font-size: 0.65rem;
+    color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.description {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    min-height: 40px;
+}
+
+.loader {
+    text-align: center;
+    padding: 50px;
+    color: var(--accent);
+    font-family: monospace;
+    letter-spacing: 2px;
+}
