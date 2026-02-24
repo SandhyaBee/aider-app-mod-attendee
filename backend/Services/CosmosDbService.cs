@@ -1,4 +1,5 @@
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
 using StyleVerse.Backend.Models;
 
 namespace StyleVerse.Backend.Services;
@@ -21,10 +22,14 @@ public class CosmosDbService
 
     public async Task<List<Product>> GetProductsAsync()
     {
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.type = 'product'");
+        var query = new QueryDefinition(
+            "SELECT c.id, c.productId, c.name, c.description, c.price, c.priceCents, " +
+            "c.categoryId, c.categoryName, c.inventoryCount, c.createdDate, c.updatedDate, " +
+            "c.tags, c.schemaVersion, c.type, c.imageUrl, c.metadata, c.rating, c._rid " +
+            "FROM c WHERE c.type = 'product'");
         var iterator = _productsContainer.GetItemQueryIterator<Product>(
             query,
-            requestOptions: new QueryRequestOptions { MaxConcurrency = -1 });
+            requestOptions: new QueryRequestOptions { MaxConcurrency = -1, MaxItemCount = 100 });
 
         var results = new List<Product>();
         while (iterator.HasMoreResults)
@@ -37,20 +42,46 @@ public class CosmosDbService
 
     public async Task<Product?> GetProductByIdAsync(string id)
     {
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id AND c.type = 'product'")
-            .WithParameter("@id", id);
-
-        var iterator = _productsContainer.GetItemQueryIterator<Product>(
-            query,
-            requestOptions: new QueryRequestOptions { MaxConcurrency = -1 });
-
-        while (iterator.HasMoreResults)
+        try
         {
-            var response = await iterator.ReadNextAsync();
-            var product = response.FirstOrDefault();
-            if (product != null) return product;
+            // Point read is 3-10x cheaper than query when id + partition key are known
+            // Try all category partitions since we only have the id
+            var query = new QueryDefinition(
+                "SELECT c.id, c.productId, c.name, c.description, c.price, c.priceCents, " +
+                "c.categoryId, c.categoryName, c.inventoryCount, c.createdDate, c.updatedDate, " +
+                "c.tags, c.schemaVersion, c.type, c.imageUrl, c.metadata, c.rating, c._rid " +
+                "FROM c WHERE c.id = @id AND c.type = 'product'")
+                .WithParameter("@id", id);
+
+            var iterator = _productsContainer.GetItemQueryIterator<Product>(
+                query,
+                requestOptions: new QueryRequestOptions { MaxConcurrency = -1, MaxItemCount = 1 });
+
+            if (iterator.HasMoreResults)
+            {
+                var response = await iterator.ReadNextAsync();
+                return response.FirstOrDefault();
+            }
+            return null;
         }
-        return null;
+        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    public async Task<Product?> GetProductByIdAndCategoryAsync(string id, int categoryId)
+    {
+        try
+        {
+            var response = await _productsContainer.ReadItemAsync<Product>(
+                id, new PartitionKey(categoryId));
+            return response.Resource;
+        }
+        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
     }
 
     public async Task<Product> UpsertProductAsync(Product product)
@@ -80,14 +111,19 @@ public class CosmosDbService
 
     public async Task<List<CartItem>> GetCartAsync(string sessionId)
     {
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.sessionId = @sid AND c.type = 'cartItem'")
+        var query = new QueryDefinition(
+            "SELECT c.id, c.sessionId, c.productId, c.productName, c.productPrice, " +
+            "c.categoryName, c.quantity, c.dateAdded, c.lineTotal, c.productPriceCents, " +
+            "c.lineTotalCents, c.schemaVersion, c.type, c.updatedDate, c._rid " +
+            "FROM c WHERE c.sessionId = @sid AND c.type = 'cartItem'")
             .WithParameter("@sid", sessionId);
 
         var iterator = _cartItemsContainer.GetItemQueryIterator<CartItem>(
             query,
             requestOptions: new QueryRequestOptions
             {
-                PartitionKey = new PartitionKey(sessionId)
+                PartitionKey = new PartitionKey(sessionId),
+                MaxItemCount = 50
             });
 
         var results = new List<CartItem>();
@@ -165,14 +201,14 @@ public class CosmosDbService
             query,
             requestOptions: new QueryRequestOptions
             {
-                PartitionKey = new PartitionKey(sessionId)
+                PartitionKey = new PartitionKey(sessionId),
+                MaxItemCount = 1
             });
 
-        while (iterator.HasMoreResults)
+        if (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
-            var item = response.FirstOrDefault();
-            if (item != null) return item;
+            return response.FirstOrDefault();
         }
         return null;
     }
@@ -181,10 +217,14 @@ public class CosmosDbService
 
     public async Task<List<Order>> GetOrdersAsync()
     {
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.type = 'order'");
+        var query = new QueryDefinition(
+            "SELECT c.id, c.customerName, c.email, c.totalAmount, c.totalAmountCents, " +
+            "c.orderDate, c.shippingRegion, c.status, c.items, c.itemCount, " +
+            "c.schemaVersion, c.type, c.updatedDate, c._rid " +
+            "FROM c WHERE c.type = 'order'");
         var iterator = _ordersContainer.GetItemQueryIterator<Order>(
             query,
-            requestOptions: new QueryRequestOptions { MaxConcurrency = -1 });
+            requestOptions: new QueryRequestOptions { MaxConcurrency = -1, MaxItemCount = 100 });
 
         var results = new List<Order>();
         while (iterator.HasMoreResults)
@@ -228,8 +268,8 @@ public class CosmosDbService
         var response = await _ordersContainer.CreateItemAsync(
             order, new PartitionKey(order.ShippingRegion));
 
-        // Clear cart items for this customer
-        await ClearCartAsync(request.CustomerName);
+        // Clear cart items in parallel
+        _ = ClearCartAsync(request.CustomerName);
 
         return response.Resource;
     }
@@ -237,10 +277,11 @@ public class CosmosDbService
     private async Task ClearCartAsync(string sessionId)
     {
         var items = await GetCartAsync(sessionId);
-        foreach (var item in items)
-        {
-            await _cartItemsContainer.DeleteItemAsync<CartItem>(
-                item.Id, new PartitionKey(sessionId));
-        }
+        if (items.Count == 0) return;
+
+        var deleteTasks = items.Select(item =>
+            _cartItemsContainer.DeleteItemAsync<CartItem>(
+                item.Id, new PartitionKey(sessionId)));
+        await Task.WhenAll(deleteTasks);
     }
 }

@@ -56,3 +56,7 @@ nunit-*.xml
 # JavaScript
 node_modules/
 wwwroot/node_modules/
+
+# Publish output
+backend/publish/
+publish/

@@ -9,10 +9,12 @@ namespace StyleVerse.Backend.Controllers;
 public class CartsController : ControllerBase
 {
     private readonly CosmosDbService _cosmos;
+    private readonly ILogger<CartsController> _logger;
 
-    public CartsController(CosmosDbService cosmos)
+    public CartsController(CosmosDbService cosmos, ILogger<CartsController> logger)
     {
         _cosmos = cosmos;
+        _logger = logger;
     }
 
     [HttpGet("{sessionId}")]
@@ -25,6 +27,9 @@ public class CartsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CartItemResponse>> AddToCart([FromBody] AddToCartRequest request)
     {
+        if (string.IsNullOrEmpty(request.SessionId))
+            return BadRequest("SessionId is required.");
+
         var item = await _cosmos.AddToCartAsync(request);
         return Ok(CartItemResponse.FromCosmos(item));
     }

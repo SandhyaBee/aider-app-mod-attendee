@@ -14,6 +14,8 @@ builder.Services.AddControllers()
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
+builder.Services.AddResponseCaching();
 
 var cosmosEndpoint = builder.Configuration["CosmosDb:Endpoint"]
     ?? throw new InvalidOperationException("CosmosDb:Endpoint not configured");
@@ -26,12 +28,14 @@ builder.Services.AddSingleton(_ =>
 {
     var options = new CosmosClientOptions
     {
-        ConnectionMode = ConnectionMode.Gateway,
+        ConnectionMode = ConnectionMode.Direct,
         ApplicationPreferredRegions = new List<string> { "Germany West Central", "East US", "North Europe" },
         SerializerOptions = new CosmosSerializationOptions
         {
             PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
-        }
+        },
+        MaxRetryAttemptsOnRateLimitedRequests = 5,
+        MaxRetryWaitTimeOnRateLimitedRequests = TimeSpan.FromSeconds(10)
     };
     return new CosmosClient(cosmosEndpoint, cosmosKey, options);
 });
@@ -54,6 +58,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
+app.UseResponseCaching();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
