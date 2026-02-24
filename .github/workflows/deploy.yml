@@ -10,9 +10,8 @@ env:
   NODE_VERSION: '18.x'
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,9 +60,67 @@ jobs:
           }
           SETTINGS
 
-      - name: Deploy to Azure Web App
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: styleverse-app
+          path: backend/publish
+
+  # Deploy to primary region (Germany West Central)
+  deploy-primary:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: styleverse-app
+          path: ./publish
+
+      - name: Deploy to Primary (Germany West Central)
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: backend/publish
+          package: ./publish
+
+  # Deploy to East US 2 (if configured)
+  deploy-eastus2:
+    needs: build
+    runs-on: ubuntu-latest
+    if: vars.DEPLOY_MULTI_REGION == 'true'
+    environment: production-eastus2
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: styleverse-app
+          path: ./publish
+
+      - name: Deploy to East US 2
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_EUS2 }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_EUS2 }}
+          package: ./publish
+
+  # Deploy to East Asia (if configured)
+  deploy-eastasia:
+    needs: build
+    runs-on: ubuntu-latest
+    if: vars.DEPLOY_MULTI_REGION == 'true'
+    environment: production-eastasia
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: styleverse-app
+          path: ./publish
+
+      - name: Deploy to East Asia
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_EA }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_EA }}
+          package: ./publish

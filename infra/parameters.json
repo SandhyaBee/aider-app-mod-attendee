@@ -5,14 +5,11 @@
     "projectName": {
       "value": "styleverse"
     },
-    "location": {
-      "value": "uksouth"
+    "cosmosAccountName": {
+      "value": "styleverse-cosmos-06"
     },
-    "sqlAdminLogin": {
-      "value": "sqladmin"
-    },
-    "sqlAdminPassword": {
-      "value": "StyleV3rse2026!"
+    "cosmosDatabaseName": {
+      "value": "StyleVerseDb"
     },
     "appServicePlanSku": {
       "value": "B1"
