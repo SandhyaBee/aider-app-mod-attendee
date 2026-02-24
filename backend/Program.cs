@@ -9,6 +9,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -17,7 +18,8 @@ builder.Services.AddSwaggerGen();
 var cosmosEndpoint = builder.Configuration["CosmosDb:Endpoint"]
     ?? throw new InvalidOperationException("CosmosDb:Endpoint not configured");
 var cosmosKey = builder.Configuration["CosmosDb:Key"]
-    ?? throw new InvalidOperationException("CosmosDb:Key not configured");
+    ?? Environment.GetEnvironmentVariable("COSMOSDB_KEY")
+    ?? throw new InvalidOperationException("CosmosDb:Key not configured. Set it in appsettings.json or COSMOSDB_KEY env var.");
 var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"] ?? "StyleVerseDb";
 
 builder.Services.AddSingleton(_ =>

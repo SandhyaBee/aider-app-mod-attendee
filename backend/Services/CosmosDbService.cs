@@ -71,12 +71,8 @@ public class CosmosDbService
         if (string.IsNullOrEmpty(product.CreatedDate))
             product.CreatedDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.000Z");
 
-        var pk = new PartitionKeyBuilder()
-            .Add(product.CategoryId)
-            .Add(product.ProductId)
-            .Build();
-
-        var response = await _productsContainer.UpsertItemAsync(product, pk);
+        var response = await _productsContainer.UpsertItemAsync(
+            product, new PartitionKey(product.CategoryId));
         return response.Resource;
     }
 
