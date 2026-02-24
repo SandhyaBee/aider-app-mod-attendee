@@ -1,58 +1,42 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using StyleVerse.Backend.Data;
 using StyleVerse.Backend.Models;
+using StyleVerse.Backend.Services;
 
-namespace StyleVerse.Backend.Controllers
+namespace StyleVerse.Backend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class CartsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class CartsController : ControllerBase
+    private readonly CosmosDbService _cosmos;
+
+    public CartsController(CosmosDbService cosmos)
     {
-        private readonly AppDbContext _context;
+        _cosmos = cosmos;
+    }
 
-        public CartsController(AppDbContext context)
-        {
-            _context = context;
-        }
+    [HttpGet("{sessionId}")]
+    public async Task<ActionResult<IEnumerable<CartItemResponse>>> GetCart(string sessionId)
+    {
+        var items = await _cosmos.GetCartAsync(sessionId);
+        return Ok(items.Select(CartItemResponse.FromCosmos));
+    }
 
-        [HttpGet("{sessionId}")]
-        public async Task<ActionResult<IEnumerable<CartItem>>> GetCart(string sessionId)
-        {
-            return await _context.CartItems
-                .Where(c => c.SessionId == sessionId)
-                .Include(c => c.Product)
-                .ToListAsync();
-        }
+    [HttpPost]
+    public async Task<ActionResult<CartItemResponse>> AddToCart([FromBody] AddToCartRequest request)
+    {
+        var item = await _cosmos.AddToCartAsync(request);
+        return Ok(CartItemResponse.FromCosmos(item));
+    }
 
-        [HttpPost]
-        public async Task<ActionResult<CartItem>> AddToCart(CartItem item)
-        {
-            var existing = await _context.CartItems
-                .FirstOrDefaultAsync(c => c.SessionId == item.SessionId && c.ProductId == item.ProductId);
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> RemoveFromCart(string id, [FromQuery] string sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+            return BadRequest("sessionId query parameter is required");
 
-            if (existing != null)
-            {
-                existing.Quantity += item.Quantity;
-            }
-            else
-            {
-                _context.CartItems.Add(item);
-            }
-
-            await _context.SaveChangesAsync();
-            return Ok(item);
-        }
-        
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> RemoveFromCart(int id)
-        {
-             var item = await _context.CartItems.FindAsync(id);
-             if (item == null) return NotFound();
-
-             _context.CartItems.Remove(item);
-             await _context.SaveChangesAsync();
-             return NoContent();
-        }
+        var deleted = await _cosmos.RemoveFromCartAsync(id, sessionId);
+        if (!deleted) return NotFound();
+        return NoContent();
     }
 }

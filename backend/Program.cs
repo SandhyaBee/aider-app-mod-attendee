@@ -1,50 +1,63 @@
-using Microsoft.EntityFrameworkCore;
-using StyleVerse.Backend.Data;
+using Microsoft.Azure.Cosmos;
+using StyleVerse.Backend.Services;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Setup Controllers with JSON options to prevent Reference Loops
 builder.Services.AddControllers()
-    .AddJsonOptions(options => {
+    .AddJsonOptions(options =>
+    {
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Challenge 1 State: Using SQL Server
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+var cosmosEndpoint = builder.Configuration["CosmosDb:Endpoint"]
+    ?? throw new InvalidOperationException("CosmosDb:Endpoint not configured");
+var cosmosKey = builder.Configuration["CosmosDb:Key"]
+    ?? throw new InvalidOperationException("CosmosDb:Key not configured");
+var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"] ?? "StyleVerseDb";
 
-// CORS for Frontend
-builder.Services.AddCors(options => {
+builder.Services.AddSingleton(_ =>
+{
+    var options = new CosmosClientOptions
+    {
+        ConnectionMode = ConnectionMode.Gateway,
+        ApplicationPreferredRegions = new List<string> { "Germany West Central", "East US", "North Europe" },
+        SerializerOptions = new CosmosSerializationOptions
+        {
+            PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+        }
+    };
+    return new CosmosClient(cosmosEndpoint, cosmosKey, options);
+});
+
+builder.Services.AddSingleton<CosmosDbService>(sp =>
+{
+    var client = sp.GetRequiredService<CosmosClient>();
+    return new CosmosDbService(client, cosmosDatabaseName);
+});
+
+builder.Services.AddCors(options =>
+{
     options.AddPolicy("AllowAll",
         b => b.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 
-// Serve static files for the React Frontend (Deployment model)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseAuthorization();
 app.MapControllers();
-app.MapFallbackToFile("index.html"); // Hooks React routing
-
-// Auto-migrate database on startup (Simplified for hackathon)
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
-}
+app.MapFallbackToFile("index.html");
 
 app.Run();
