@@ -5,17 +5,14 @@
     "projectName": {
       "value": "styleverse"
     },
-    "location": {
-      "value": "uksouth"
-    },
-    "sqlAdminLogin": {
-      "value": "sqladmin"
-    },
-    "sqlAdminPassword": {
-      "value": "StyleV3rse2026!"
-    },
     "appServicePlanSku": {
       "value": "B1"
+    },
+    "cosmosDbEndpoint": {
+      "value": "https://styleverse-cosmos-06.documents.azure.com:443/"
+    },
+    "cosmosDbKey": {
+      "value": ""
     }
   }
 }

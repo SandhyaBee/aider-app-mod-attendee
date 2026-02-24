@@ -1,112 +1,169 @@
-// StyleVerse Azure Infrastructure - Phase 1
-// Provisions: Azure SQL Database, App Service Plan, and Web App in UK South
+// StyleVerse Azure Infrastructure - Phase 4: Global Distribution
+// Provisions: Multi-region App Services behind Azure Front Door
 
 @description('The name prefix used for all resources')
 param projectName string = 'styleverse'
 
-@description('The location for all resources')
-param location string = 'germanywestcentral'
-
-@description('The SQL Server administrator login')
-param sqlAdminLogin string
-
-@secure()
-@description('The SQL Server administrator password')
-param sqlAdminPassword string
-
 @description('The App Service Plan SKU')
 @allowed(['F1', 'B1', 'B2', 'B3', 'S1', 'S2', 'S3', 'P1v2', 'P2v2', 'P3v2'])
-param appServicePlanSku string = 'S1'
+param appServicePlanSku string = 'B1'
 
-// Unique suffix for globally unique resource names
+@description('Cosmos DB account endpoint')
+param cosmosDbEndpoint string
+
+@secure()
+@description('Cosmos DB account key')
+param cosmosDbKey string
+
 var uniqueSuffix = uniqueString(resourceGroup().id)
-var sqlServerName = '${projectName}-sql-${uniqueSuffix}'
-var sqlDatabaseName = '${projectName}db'
-var appServicePlanName = '${projectName}-plan-${uniqueSuffix}'
-var webAppName = '${projectName}-app-${uniqueSuffix}'
 
-// SQL Server
-resource sqlServer 'Microsoft.Sql/servers@2023-05-01-preview' = {
-  name: sqlServerName
-  location: location
-  properties: {
-    administratorLogin: sqlAdminLogin
-    administratorLoginPassword: sqlAdminPassword
-    version: '12.0'
-    publicNetworkAccess: 'Enabled'
+var regions = [
+  {
+    name: 'germanywestcentral'
+    displayName: 'Germany West Central'
   }
-}
+  {
+    name: 'eastus2'
+    displayName: 'East US 2'
+  }
+  {
+    name: 'eastasia'
+    displayName: 'East Asia'
+  }
+  {
+    name: 'francecentral'
+    displayName: 'France Central'
+  }
+]
 
-// SQL Database
-resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-05-01-preview' = {
-  parent: sqlServer
-  name: sqlDatabaseName
-  location: location
-  sku: {
-    name: 'Basic'
-    tier: 'Basic'
-    capacity: 5
-  }
-  properties: {
-    collation: 'SQL_Latin1_General_CP1_CI_AS'
-    maxSizeBytes: 2147483648
-  }
-}
+// ─── App Service Plans (one per region) ─────────────────────────
 
-// Firewall rule to allow Azure services (required for App Service connectivity)
-resource sqlFirewallAzureServices 'Microsoft.Sql/servers/firewallRules@2023-05-01-preview' = {
-  parent: sqlServer
-  name: 'AllowAllAzureServices'
-  properties: {
-    startIpAddress: '0.0.0.0'
-    endIpAddress: '0.0.0.0'
-  }
-}
-
-// App Service Plan
-resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
-  name: appServicePlanName
-  location: location
+resource appServicePlans 'Microsoft.Web/serverfarms@2023-01-01' = [for region in regions: {
+  name: '${projectName}-plan-${region.name}-${uniqueSuffix}'
+  location: region.name
   sku: {
     name: appServicePlanSku
     capacity: 1
   }
-  properties: {
-  }
-}
+}]
 
-// Web App
-resource webApp 'Microsoft.Web/sites@2023-01-01' = {
-  name: webAppName
-  location: location
+// ─── Web Apps (one per region) ──────────────────────────────────
+
+resource webApps 'Microsoft.Web/sites@2023-01-01' = [for (region, i) in regions: {
+  name: '${projectName}-app-${region.name}-${uniqueSuffix}'
+  location: region.name
   properties: {
-    serverFarmId: appServicePlan.id
+    serverFarmId: appServicePlans[i].id
     siteConfig: {
       netFrameworkVersion: 'v8.0'
-      alwaysOn: false
+      alwaysOn: appServicePlanSku != 'F1'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
+      appSettings: [
+        {
+          name: 'REGION_NAME'
+          value: region.displayName
+        }
+        {
+          name: 'COSMOS_PREFERRED_REGION'
+          value: region.displayName
+        }
+        {
+          name: 'CosmosDb__Endpoint'
+          value: cosmosDbEndpoint
+        }
+        {
+          name: 'CosmosDb__Key'
+          value: cosmosDbKey
+        }
+        {
+          name: 'CosmosDb__DatabaseName'
+          value: 'StyleVerseDb'
+        }
+      ]
     }
     httpsOnly: true
   }
-}
+}]
 
-// Connection string configuration for the Web App
-resource webAppConnectionStrings 'Microsoft.Web/sites/config@2023-01-01' = {
-  parent: webApp
-  name: 'connectionstrings'
-  properties: {
-    DefaultConnection: {
-      value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
-      type: 'SQLAzure'
-    }
+// ─── Azure Front Door ───────────────────────────────────────────
+
+resource frontDoorProfile 'Microsoft.Cdn/profiles@2024-02-01' = {
+  name: '${projectName}-fd-${uniqueSuffix}'
+  location: 'global'
+  sku: {
+    name: 'Standard_AzureFrontDoor'
   }
 }
 
-// Outputs for deployment scripts
-output webAppName string = webApp.name
-output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
-output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
-output sqlDatabaseName string = sqlDatabaseName
-output sqlServerName string = sqlServer.name
+resource frontDoorEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2024-02-01' = {
+  parent: frontDoorProfile
+  name: '${projectName}-endpoint'
+  location: 'global'
+  properties: {
+    enabledState: 'Enabled'
+  }
+}
+
+resource originGroup 'Microsoft.Cdn/profiles/originGroups@2024-02-01' = {
+  parent: frontDoorProfile
+  name: '${projectName}-origin-group'
+  properties: {
+    loadBalancingSettings: {
+      sampleSize: 4
+      successfulSamplesRequired: 3
+      additionalLatencyInMilliseconds: 50
+    }
+    healthProbeSettings: {
+      probePath: '/api/health'
+      probeRequestType: 'GET'
+      probeProtocol: 'Https'
+      probeIntervalInSeconds: 30
+    }
+    sessionAffinityState: 'Disabled'
+  }
+}
+
+resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' = [for (region, i) in regions: {
+  parent: originGroup
+  name: 'origin-${region.name}'
+  properties: {
+    hostName: webApps[i].properties.defaultHostName
+    httpPort: 80
+    httpsPort: 443
+    originHostHeader: webApps[i].properties.defaultHostName
+    priority: 1
+    weight: 1000
+    enabledState: 'Enabled'
+  }
+}]
+
+resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
+  parent: frontDoorEndpoint
+  name: 'default-route'
+  properties: {
+    originGroup: {
+      id: originGroup.id
+    }
+    supportedProtocols: [
+      'Http'
+      'Https'
+    ]
+    patternsToMatch: [
+      '/*'
+    ]
+    forwardingProtocol: 'HttpsOnly'
+    linkToDefaultDomain: 'Enabled'
+    httpsRedirect: 'Enabled'
+  }
+  dependsOn: [
+    origins
+  ]
+}
+
+// ─── Outputs ────────────────────────────────────────────────────
+
+output frontDoorEndpointHostName string = frontDoorEndpoint.properties.hostName
+output webAppNames array = [for (region, i) in regions: webApps[i].name]
+output webAppUrls array = [for (region, i) in regions: 'https://${webApps[i].properties.defaultHostName}']
