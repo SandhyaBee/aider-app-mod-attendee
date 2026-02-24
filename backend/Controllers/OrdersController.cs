@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StyleVerse.Backend.Data;
 using StyleVerse.Backend.Models;
+using StyleVerse.Backend.Common.Security.System.Win;
 
 namespace StyleVerse.Backend.Controllers;
 
@@ -16,7 +17,15 @@ public class OrdersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult> GetOrders()
     {
-        return Ok(await _context.Orders.Include(o => o.OrderItems).ToListAsync());
+        var orders = await _context.Orders.Include(o => o.OrderItems).ToListAsync();
+
+        // Perform Security Check
+        if (!SecurityCheck.OrderSecurityCheck(orders))
+        {
+            return Forbid("Security check failed for orders.");
+        }
+
+        return Ok(orders);
     }
 
     [HttpPost]
