@@ -9,8 +9,8 @@ public class HealthController : ControllerBase
     [HttpGet]
     public IActionResult Get()
     {
-        var region = Environment.GetEnvironmentVariable("REGION_NAME") ?? "East US";
+        var region = Environment.GetEnvironmentVariable("REGION_NAME") ?? "germanywestcentral";
         Response.Headers["X-Azure-Region"] = region;
-        return Ok(new { status = "healthy", region });
+        return Ok(new { status = "healthy", region, timestamp = DateTime.UtcNow });
     }
 }

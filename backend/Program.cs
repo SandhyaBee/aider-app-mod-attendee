@@ -24,12 +24,16 @@ var cosmosKey = builder.Configuration["CosmosDb:Key"]
     ?? throw new InvalidOperationException("CosmosDb:Key not configured. Set it in appsettings.json or COSMOSDB_KEY env var.");
 var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"] ?? "StyleVerseDb";
 
+var preferredRegion = builder.Configuration["CosmosDb:PreferredRegion"]
+    ?? Environment.GetEnvironmentVariable("COSMOS_PREFERRED_REGION")
+    ?? "Germany West Central";
+
 builder.Services.AddSingleton(_ =>
 {
     var options = new CosmosClientOptions
     {
         ConnectionMode = ConnectionMode.Direct,
-        ApplicationPreferredRegions = new List<string> { "Germany West Central", "East US", "North Europe" },
+        ApplicationPreferredRegions = new List<string> { preferredRegion, "Germany West Central", "East US 2", "East Asia" },
         SerializerOptions = new CosmosSerializationOptions
         {
             PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
