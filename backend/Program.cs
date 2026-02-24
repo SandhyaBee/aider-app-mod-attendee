@@ -33,7 +33,7 @@ builder.Services.AddSingleton(_ =>
     var options = new CosmosClientOptions
     {
         ConnectionMode = ConnectionMode.Direct,
-        ApplicationPreferredRegions = new List<string> { preferredRegion, "Germany West Central", "East US 2", "East Asia" },
+        ApplicationPreferredRegions = new List<string> { preferredRegion, "Germany West Central", "East US 2", "East Asia", "France Central" },
         SerializerOptions = new CosmosSerializationOptions
         {
             PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase

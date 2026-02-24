@@ -124,3 +124,23 @@ jobs:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME_EA }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_EA }}
           package: ./publish
+
+  # Deploy to France Central (if configured)
+  deploy-francecentral:
+    needs: build
+    runs-on: ubuntu-latest
+    if: vars.DEPLOY_MULTI_REGION == 'true'
+    environment: production-francecentral
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: styleverse-app
+          path: ./publish
+
+      - name: Deploy to France Central
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_FC }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_FC }}
+          package: ./publish

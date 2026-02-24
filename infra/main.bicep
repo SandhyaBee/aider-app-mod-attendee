@@ -35,6 +35,11 @@ var regions = [
     displayName: 'East Asia'
     suffix: 'ea'
   }
+  {
+    name: 'francecentral'
+    displayName: 'France Central'
+    suffix: 'fc'
+  }
 ]
 
 // Unique suffix for globally unique resource names
@@ -67,7 +72,7 @@ resource webApps 'Microsoft.Web/sites@2023-01-01' = [for (region, i) in regions:
     serverFarmId: appServicePlans[i].id
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|8.0'
-      alwaysOn: true
+      alwaysOn: appServicePlanSku != 'F1'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
@@ -103,7 +108,7 @@ resource webApps 'Microsoft.Web/sites@2023-01-01' = [for (region, i) in regions:
 }]
 
 // Azure Front Door Profile
-resource frontDoorProfile 'Microsoft.Cdn/profiles@2023-05-01' = {
+resource frontDoorProfile 'Microsoft.Cdn/profiles@2024-02-01' = {
   name: '${projectName}-fd-${uniqueSuffix}'
   location: 'global'
   sku: {
@@ -112,7 +117,7 @@ resource frontDoorProfile 'Microsoft.Cdn/profiles@2023-05-01' = {
 }
 
 // Front Door Endpoint
-resource frontDoorEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2023-05-01' = {
+resource frontDoorEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2024-02-01' = {
   parent: frontDoorProfile
   name: '${projectName}-endpoint'
   location: 'global'
@@ -122,7 +127,7 @@ resource frontDoorEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2023-05-01' = {
 }
 
 // Origin Group with health probes
-resource originGroup 'Microsoft.Cdn/profiles/originGroups@2023-05-01' = {
+resource originGroup 'Microsoft.Cdn/profiles/originGroups@2024-02-01' = {
   parent: frontDoorProfile
   name: '${projectName}-origin-group'
   properties: {
@@ -142,7 +147,7 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2023-05-01' = {
 }
 
 // Origins - one per regional Web App
-resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2023-05-01' = [for (region, i) in regions: {
+resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' = [for (region, i) in regions: {
   parent: originGroup
   name: '${projectName}-origin-${region.suffix}'
   properties: {
@@ -157,7 +162,7 @@ resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2023-05-01' = [for
 }]
 
 // Route - map all traffic to origin group
-resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2023-05-01' = {
+resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
   parent: frontDoorEndpoint
   name: '${projectName}-route'
   properties: {
@@ -199,8 +204,5 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2023-05-01' = {
 // Outputs
 output frontDoorEndpointHostName string = frontDoorEndpoint.properties.hostName
 output frontDoorEndpointUrl string = 'https://${frontDoorEndpoint.properties.hostName}'
-output webAppUrls array = [for (region, i) in regions: {
-  region: region.name
-  url: 'https://${webApps[i].properties.defaultHostName}'
-  name: webApps[i].name
-}]
+output webAppNames array = [for (region, i) in regions: webApps[i].name]
+output webAppUrls array = [for (region, i) in regions: 'https://${webApps[i].properties.defaultHostName}']

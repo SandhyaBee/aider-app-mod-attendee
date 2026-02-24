@@ -25,6 +25,11 @@ var locations = [
     failoverPriority: 2
     isZoneRedundant: false
   }
+  {
+    locationName: 'francecentral'
+    failoverPriority: 3
+    isZoneRedundant: false
+  }
 ]
 
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
